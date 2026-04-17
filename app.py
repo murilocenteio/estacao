@@ -3,53 +3,66 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# Configurações de pastas
-if not os.path.exists("fotos"):
-    os.makedirs("fotos")
-
-DATA_FILE = "dados_estacao.csv"
+# Configuração de persistência simples
+DATA_FILE = "dados_estacao_v2.csv"
 
 def carregar_dados():
     if os.path.exists(DATA_FILE):
         return pd.read_csv(DATA_FILE)
-    return pd.DataFrame(columns=['ID', 'Produto', 'Dose', 'Tratamento', 'Repeticao', 'Variavel', 'Valor', 'Data'])
+    return pd.DataFrame(columns=[
+        'Experimento', 'Tratamento', 'Descricao_Trat', 'Repeticao', 'Variavel', 'Valor', 'Data'
+    ])
 
 def salvar_dado(df):
     df.to_csv(DATA_FILE, index=False)
 
-st.set_page_config(page_title="Gestão Agrícola", layout="wide")
-st.sidebar.title("Menu")
-menu = st.sidebar.radio("Ir para:", ["Cadastrar", "Coleta", "Ver Dados"])
-
+st.set_page_config(page_title="BioField Pro", layout="wide")
 df_base = carregar_dados()
 
-if menu == "Cadastrar":
-    st.header("📝 Cadastro de Experimentos")
-    with st.form("cad"):
-        prod = st.text_input("Produto")
-        dose = st.text_input("Dose")
-        trat = st.number_input("Tratamento", min_value=1)
-        rep = st.number_input("Repetição", min_value=1)
-        if st.form_submit_button("Salvar"):
-            novo = pd.DataFrame([[len(df_base)+1, prod, dose, trat, rep, "", 0, datetime.now()]], columns=df_base.columns)
-            salvar_dado(pd.concat([df_base, novo], ignore_index=True))
-            st.success("Cadastrado!")
+st.sidebar.title("🌱 Estação Experimental")
+menu = st.sidebar.radio("Navegação", ["1. Configurar Experimento", "2. Coleta de Campo", "3. Exportar Relatório"])
 
-elif menu == "Coleta":
-    st.header("📸 Coleta e Fotos")
+# --- 1. CONFIGURAR EXPERIMENTO ---
+if menu == "1. Configurar Experimento":
+    st.header("🔬 Novo Delineamento")
+    
+    with st.expander("Clique para cadastrar um novo experimento", expanded=True):
+        nome_exp = st.text_input("Nome do Experimento", placeholder="Ex: Fungicida Soja 2024")
+        
+        col1, col2 = st.columns(2)
+        n_trats = col1.number_input("Quantidade de Tratamentos", min_value=1, value=4)
+        n_reps = col2.number_input("Quantidade de Repetições", min_value=1, value=4)
+        
+        st.write("---")
+        st.subheader("Definição dos Produtos/Doses")
+        
+        # Criar campos dinâmicos para descrição de cada tratamento
+        lista_descricoes = []
+        for i in range(int(n_trats)):
+            desc = st.text_input(f"Tratamento {i+1} (Produtos/Doses)", key=f"t{i}")
+            lista_descricoes.append(desc)
+            
+        if st.button("Gerar Estrutura do Experimento"):
+            novas_linhas = []
+            for t_idx in range(int(n_trats)):
+                for r_idx in range(int(n_reps)):
+                    novas_linhas.append({
+                        'Experimento': nome_exp,
+                        'Tratamento': t_idx + 1,
+                        'Descricao_Trat': lista_descricoes[t_idx],
+                        'Repeticao': r_idx + 1,
+                        'Variavel': 'N/A',
+                        'Valor': 0.0,
+                        'Data': datetime.now().strftime("%d/%m/%Y")
+                    })
+            
+            df_novo = pd.concat([df_base, pd.DataFrame(novas_linhas)], ignore_index=True)
+            salvar_dado(df_novo)
+            st.success(f"Experimento '{nome_exp}' gerado com {n_trats * n_reps} unidades experimentais!")
+
+# --- 2. COLETA DE CAMPO ---
+elif menu == "2. Coleta de Campo":
+    st.header("📝 Coleta por Repetição")
+    
     if not df_base.empty:
-        sel_trat = st.selectbox("Tratamento", sorted(df_base['Tratamento'].unique()))
-        var = st.text_input("Variável")
-        val = st.number_input("Valor")
-        foto = st.camera_input("Tirar Foto")
-        if st.button("Salvar Coleta"):
-            if foto:
-                with open(f"fotos/trat_{sel_trat}_{datetime.now().strftime('%H%M%S')}.jpg", "wb") as f:
-                    f.write(foto.getbuffer())
-            st.success("Dados salvos!")
-    else:
-        st.info("Cadastre algo primeiro.")
-
-elif menu == "Ver Dados":
-    st.header("📊 Dados Acumulados")
-    st.dataframe(df_base)
+        exp_selecionado = st.selectbox("Se
